@@ -28,6 +28,7 @@ DOWNLOADER_MIDDLEWARES = {
     'scrapy_splash.SplashMiddleware': 750,
     'scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware': 800,
     'ciDu.middlewares.HttpProxyMiddleware': 850,
+    'ciDu.middlewares.CiduDownloaderMiddleware': 880,
 }
 DUPEFILTER_CLASS = 'scrapy_splash.SplashAwareDupeFilter'
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
@@ -73,9 +74,9 @@ DOWNLOAD_DELAY = 0.1
 
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'ciDu.pipelines.CiduPipeline': 300,
-#}
+ITEM_PIPELINES = {
+    'ciDu.pipelines.CiduPipeline': 300,
+}
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://doc.scrapy.org/en/latest/topics/autothrottle.html

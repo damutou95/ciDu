@@ -4,6 +4,7 @@ import scrapy
 from urllib import parse
 import re
 import urllib
+import pymongo
 from ciDu.items import CiduItem
 from scrapy_splash import SplashRequest
 
@@ -26,7 +27,7 @@ class FenleiSpider(scrapy.Spider):
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36'
     }
     def start_requests(self):
-        yield SplashRequest(url=self.start_urls[0], headers=self.headers,  callback=self.parse, args={'wait': 1})
+        yield SplashRequest(url=self.start_urls[0], headers=self.headers,  callback=self.parse, args={'wait': 1, 'tag': 0})
 
     def parse(self, response):
         linksPre = re.findall('"(/zt/\w/w1.htm?)', response.text)
@@ -34,7 +35,7 @@ class FenleiSpider(scrapy.Spider):
         for link in linksPre:
             links.append(urllib.parse.urljoin(self.start_urls[0], link))
         for link in links:
-            yield SplashRequest(url=link,  headers=self.headers,  callback=self.parsePlus, args={'wait': 1})
+            yield SplashRequest(url=link,  headers=self.headers,  callback=self.parsePlus, args={'wait': 1, 'tag': 0})
 
     def parsePlus(self, response):
         linksPre = re.findall('(/zt/.{0,4}?/.{0,4}?/w1.htm?)', response.text)
@@ -42,7 +43,7 @@ class FenleiSpider(scrapy.Spider):
         for link in linksPre:
             links.append(urllib.parse.urljoin(self.start_urls[0], link))
         for link in links:
-            yield SplashRequest(url=link, headers=self.headers, callback=self.parsePP, args={'wait': 3})
+            yield SplashRequest(url=link, headers=self.headers, callback=self.parsePP, args={'wait': 3, 'tag': 0})
 
     def parsePP(self, response):
         linksPre = re.findall('(/zt/.{0,4}?/.{0,4}?/.{0,4}?/w1.htm?)', response.text)
@@ -51,9 +52,9 @@ class FenleiSpider(scrapy.Spider):
             for link in linksPre:
                 links.append(urllib.parse.urljoin(self.start_urls[0], link))
             for link in links:
-                yield SplashRequest(url=link, headers=self.headers, callback=self.getPagenum, args={'wait': 3})
+                yield SplashRequest(url=link, headers=self.headers, callback=self.getPagenum, args={'wait': 3,  'tag': 0})
         else:
-            yield SplashRequest(url=response.url, headers=self.headers, callback=self.getPagenum, args={'wait': 3}, dont_filter=True)
+            yield SplashRequest(url=response.url, headers=self.headers, callback=self.getPagenum, args={'wait': 3, 'tag': 0}, dont_filter=True)
 
     def getPagenum(self, response):
         pageNumpre = re.findall('w(\d+).htm" title="尾页"', response.text)
@@ -63,7 +64,19 @@ class FenleiSpider(scrapy.Spider):
             pageNum = int(pageNumpre[0])
         for i in range(pageNum):
             url = response.url.replace('1.htm', str(i+1) + '.htm')
-            yield SplashRequest(url=url, headers=self.headers, callback=self.parsePPPP, args={'wait': 5}, dont_filter=True)
+            host = '127.0.0.1'
+            port = 27017
+            client = pymongo.MongoClient(host=host, port=port)
+            dbName = 'ciDuurl'
+            collectionName = 'url'
+            mgd = client[dbName]
+            col = mgd[collectionName]
+            inner = col.find()
+            urls = []
+            for x in inner:
+                urls.append(x['url'])
+            if url not in urls:
+                yield SplashRequest(url=url, headers=self.headers, callback=self.parsePPPP, args={'wait': 5, 'tag': 0, 'crawled': 'crawled'}, dont_filter=True)
 
     def parsePPPP(self, response):
         item = CiduItem()

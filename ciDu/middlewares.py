@@ -4,12 +4,11 @@
 #
 # See documentation in:
 # https://doc.scrapy.org/en/latest/topics/spider-middleware.html
-
+from twisted.internet.error import TimeoutError, ConnectionLost, TCPTimedOutError, ConnectionRefusedError, ConnectError
 from scrapy import signals
-from scrapy import signals
-import pymysql
 import logging
 import random
+import pymysql, pymongo
 
 class CiduSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -90,7 +89,26 @@ class CiduDownloaderMiddleware(object):
         # - return a Response object
         # - return a Request object
         # - or raise IgnoreRequest
-        return response
+        if response.status != 200:
+            if request.meta['splash']['args']['tag'] < 30:
+                request.meta['splash']['args']['tag'] += 1
+                logging.info(f"""重新发送请求{request.meta['splash']['args']['tag']}次！""")
+                return request
+            else:
+                logging.info('重试30次不成功，放弃请求！')
+        else:#如果抓取的页面发送成功了，把链接存到数据库来进行去重
+            if 'crawled' in request.meta['splash']['args']:
+                logging.info('####################抓取成功，将这条URL存入数据库')
+                host = '127.0.0.1'
+                port = 27017
+                dbName = 'ciDuurl'
+                collectionName = 'url'
+                client = pymongo.MongoClient(host=host, port=port)
+                mgd = client[dbName]
+                post = mgd[collectionName]
+                data = {'url': request.meta['splash']['args']['url']}
+                post.insert(data)
+            return response
 
     def process_exception(self, request, exception, spider):
         # Called when a download handler or a process_request()
@@ -100,7 +118,14 @@ class CiduDownloaderMiddleware(object):
         # - return None: continue processing this exception
         # - return a Response object: stops process_exception() chain
         # - return a Request object: stops process_exception() chain
-        pass
+        if isinstance(exception,
+                      (TimeoutError, ConnectionLost, TCPTimedOutError, ConnectionRefusedError, ConnectError)):
+            if request.meta['splash']['args']['tag'] < 30:
+                request.meta['splash']['args']['tag'] += 1
+                logging.info(f"""##################重新发送请求{request.meta['splash']['args']['tag']}次！###########""")
+                return request
+            else:
+                logging.info('##############重试30次不成功，放弃请求！#############')
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
